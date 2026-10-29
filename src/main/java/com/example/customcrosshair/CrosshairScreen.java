@@ -50,6 +50,8 @@ public class CrosshairScreen extends Screen {
         addDrawableChild(new IntSlider(x0, y, COL_W, 20, "Outline", 0, 3, cfg.outlineThickness, v -> cfg.outlineThickness = v));
         y += ROW;
         addDrawableChild(new IntSlider(x0, y, COL_W, 20, "Nokta boyutu", 1, 8, cfg.dotSize, v -> cfg.dotSize = v));
+        y += ROW;
+        addDrawableChild(new IntSlider(x0, y, COL_W, 20, "Aci (ok ^)", 10, 80, cfg.angle, v -> cfg.angle = v));
         boxY = y + 36;
 
         // ---- Sutun 2: ac/kapat ----
@@ -67,6 +69,8 @@ public class CrosshairScreen extends Screen {
         addDrawableChild(toggle(x1, ry, "Hedefte renk", () -> cfg.entityColorEnabled, v -> cfg.entityColorEnabled = v));
         ry += ROW;
         addDrawableChild(toggle(x1, ry, "Sadece canlilar", () -> cfg.targetOnlyLiving, v -> cfg.targetOnlyLiving = v));
+        ry += ROW;
+        addDrawableChild(toggle(x1, ry, "Orijinal renk", () -> cfg.vanillaColor, v -> cfg.vanillaColor = v));
 
         // ---- Sutun 3: stil, renkler, butonlar ----
         int cy = 30;
@@ -139,8 +143,8 @@ public class CrosshairScreen extends Screen {
         context.drawTextWithShadow(this.textRenderer, "Hedefte", x0 + BOX + 6, boxY - 11, 0xA0A0A0);
         context.fill(x0, boxY, x0 + BOX, boxY + BOX, 0xFF3C6B2E);
         context.fill(x0 + BOX + 6, boxY, x0 + BOX * 2 + 6, boxY + BOX, 0xFFB8B8B8);
-        CrosshairRenderer.render(context, x0 + BOX / 2, boxY + BOX / 2, false);
-        CrosshairRenderer.render(context, x0 + BOX + 6 + BOX / 2, boxY + BOX / 2, true);
+        CrosshairRenderer.render(context, x0 + BOX / 2f, boxY + BOX / 2f, false);
+        CrosshairRenderer.render(context, x0 + BOX + 6 + BOX / 2f, boxY + BOX / 2f, true);
     }
 
     @Override

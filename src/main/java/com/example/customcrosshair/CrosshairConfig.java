@@ -43,6 +43,11 @@ public class CrosshairConfig {
     public boolean tShape = false;  // sadece arti: ustteki kolu kaldirir
     public boolean hideInThirdPerson = false;
 
+    // Ok (^) stili: kollarin dikeyle yaptigi aci (derece)
+    public int angle = 45;
+    // Orijinal Minecraft crosshair rengi (arka plani ters ceviren gri/saydam gorunum)
+    public boolean vanillaColor = false;
+
     // Hedefe bakinca renk degisimi
     public boolean entityColorEnabled = true;
     public String entityColor = "FFFF0000";
@@ -86,6 +91,7 @@ public class CrosshairConfig {
         gap = Math.max(0, gap);
         outlineThickness = Math.max(0, outlineThickness);
         dotSize = Math.max(1, dotSize);
+        angle = Math.min(80, Math.max(10, angle));
         if (color == null) color = "FFFFFFFF";
         if (outlineColor == null) outlineColor = "FF000000";
         if (entityColor == null) entityColor = "FFFF0000";
