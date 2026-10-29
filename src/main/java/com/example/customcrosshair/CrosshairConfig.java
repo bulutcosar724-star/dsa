@@ -13,22 +13,44 @@ public class CrosshairConfig {
     private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("customcrosshair.json");
     private static CrosshairConfig instance;
 
+    public enum Style {
+        CROSS("Arti (+)"), DOT("Nokta"), CIRCLE("Daire"), CHEVRON("Ok (^)");
+
+        public final String label;
+
+        Style(String label) {
+            this.label = label;
+        }
+
+        public Style next() {
+            Style[] v = values();
+            return v[(ordinal() + 1) % v.length];
+        }
+    }
+
     // Renkler AARRGGBB hex (ornek: "FFFFFFFF" beyaz, "80FF0000" yari saydam kirmizi)
     public boolean enabled = true;
+    public Style style = Style.CROSS;
     public String color = "FFFFFFFF";
-    public int size = 5;            // kol uzunlugu
-    public int thickness = 1;       // kol kalinligi
-    public int gap = 3;             // merkezden bosluk
+    public int size = 5;            // kol uzunlugu / daire yaricapi / ok uzunlugu
+    public int thickness = 1;       // cizgi kalinligi
+    public int gap = 3;             // merkezden bosluk (sadece arti)
     public boolean outline = true;
     public String outlineColor = "FF000000";
     public int outlineThickness = 1;
     public boolean centerDot = false;
     public int dotSize = 1;
-    public boolean tShape = false;  // ustteki kolu kaldirir
+    public boolean tShape = false;  // sadece arti: ustteki kolu kaldirir
     public boolean hideInThirdPerson = false;
+
+    // Hedefe bakinca renk degisimi
+    public boolean entityColorEnabled = true;
+    public String entityColor = "FFFF0000";
+    public boolean targetOnlyLiving = true; // sadece oyuncu/mob/NPC gibi canlilar
 
     public transient int colorInt = 0xFFFFFFFF;
     public transient int outlineColorInt = 0xFF000000;
+    public transient int entityColorInt = 0xFFFF0000;
 
     public static CrosshairConfig get() {
         if (instance == null) load();
@@ -58,6 +80,7 @@ public class CrosshairConfig {
     }
 
     public void normalize() {
+        if (style == null) style = Style.CROSS;
         size = Math.max(0, size);
         thickness = Math.max(1, thickness);
         gap = Math.max(0, gap);
@@ -65,8 +88,10 @@ public class CrosshairConfig {
         dotSize = Math.max(1, dotSize);
         if (color == null) color = "FFFFFFFF";
         if (outlineColor == null) outlineColor = "FF000000";
+        if (entityColor == null) entityColor = "FFFF0000";
         colorInt = parse(color, 0xFFFFFFFF);
         outlineColorInt = parse(outlineColor, 0xFF000000);
+        entityColorInt = parse(entityColor, 0xFFFF0000);
     }
 
     public static void save() {
