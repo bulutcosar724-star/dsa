@@ -15,12 +15,19 @@ public class CustomCrosshairClient implements ClientModInitializer {
     public void onInitializeClient() {
         CrosshairConfig.load();
 
+        KeyBinding open = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.customcrosshair.open", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, CATEGORY));
         KeyBinding toggle = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.customcrosshair.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, CATEGORY));
         KeyBinding reload = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.customcrosshair.reload", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (open.wasPressed()) {
+                if (client.currentScreen == null) {
+                    client.setScreen(new CrosshairScreen());
+                }
+            }
             while (toggle.wasPressed()) {
                 CrosshairConfig cfg = CrosshairConfig.get();
                 cfg.enabled = !cfg.enabled;

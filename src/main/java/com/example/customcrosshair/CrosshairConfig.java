@@ -45,15 +45,28 @@ public class CrosshairConfig {
             System.err.println("[CustomCrosshair] Config okunamadi, varsayilan kullaniliyor: " + e);
         }
         if (cfg == null) cfg = new CrosshairConfig();
-        cfg.size = Math.max(0, cfg.size);
-        cfg.thickness = Math.max(1, cfg.thickness);
-        cfg.gap = Math.max(0, cfg.gap);
-        cfg.outlineThickness = Math.max(0, cfg.outlineThickness);
-        cfg.dotSize = Math.max(1, cfg.dotSize);
-        cfg.colorInt = parse(cfg.color, 0xFFFFFFFF);
-        cfg.outlineColorInt = parse(cfg.outlineColor, 0xFF000000);
+        cfg.normalize();
         instance = cfg;
         save();
+    }
+
+    public static void reset() {
+        CrosshairConfig cfg = new CrosshairConfig();
+        cfg.normalize();
+        instance = cfg;
+        save();
+    }
+
+    public void normalize() {
+        size = Math.max(0, size);
+        thickness = Math.max(1, thickness);
+        gap = Math.max(0, gap);
+        outlineThickness = Math.max(0, outlineThickness);
+        dotSize = Math.max(1, dotSize);
+        if (color == null) color = "FFFFFFFF";
+        if (outlineColor == null) outlineColor = "FF000000";
+        colorInt = parse(color, 0xFFFFFFFF);
+        outlineColorInt = parse(outlineColor, 0xFF000000);
     }
 
     public static void save() {
@@ -64,7 +77,7 @@ public class CrosshairConfig {
         }
     }
 
-    private static int parse(String s, int fallback) {
+    public static int parse(String s, int fallback) {
         try {
             String h = s.replace("#", "").trim();
             if (h.length() == 6) h = "FF" + h;

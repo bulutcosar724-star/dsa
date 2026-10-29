@@ -5,9 +5,11 @@ import net.minecraft.client.gui.DrawContext;
 public class CrosshairRenderer {
 
     public static void render(DrawContext ctx) {
+        render(ctx, ctx.getScaledWindowWidth() / 2, ctx.getScaledWindowHeight() / 2);
+    }
+
+    public static void render(DrawContext ctx, int cx, int cy) {
         CrosshairConfig c = CrosshairConfig.get();
-        int cx = ctx.getScaledWindowWidth() / 2;
-        int cy = ctx.getScaledWindowHeight() / 2;
 
         int t = c.thickness;
         int lo = -(t / 2);
@@ -15,7 +17,6 @@ public class CrosshairRenderer {
         int g = c.gap;
         int s = c.size;
 
-        // Her dikdortgen: {x1, y1, x2, y2}
         int[][] rects = new int[5][];
         int n = 0;
 
@@ -34,7 +35,6 @@ public class CrosshairRenderer {
             dot = new int[]{cx + dl, cy + dl, cx + dl + c.dotSize, cy + dl + c.dotSize};
         }
 
-        // Once outline (hepsi), sonra ana renk; boylece outline ust uste binmez
         if (c.outline && c.outlineThickness > 0) {
             int o = c.outlineThickness;
             for (int i = 0; i < n; i++) {
