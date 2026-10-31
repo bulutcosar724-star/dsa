@@ -9,112 +9,138 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class CrosshairConfig {
+    public enum Style { CROSS, DOT, CIRCLE, ARROW, CUSTOM }
+
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("customcrosshair.json");
-    private static CrosshairConfig instance;
+    private static CrosshairConfig instance = new CrosshairConfig();
 
-    public enum Style {
-        CROSS("Arti (+)"), DOT("Nokta"), CIRCLE("Daire"), CHEVRON("Ok (^)");
-
-        public final String label;
-
-        Style(String label) {
-            this.label = label;
-        }
-
-        public Style next() {
-            Style[] v = values();
-            return v[(ordinal() + 1) % v.length];
-        }
-    }
-
-    // Renkler AARRGGBB hex (ornek: "FFFFFFFF" beyaz, "80FF0000" yari saydam kirmizi)
     public boolean enabled = true;
     public Style style = Style.CROSS;
     public String color = "FFFFFFFF";
-    public int size = 5;            // kol uzunlugu / daire yaricapi / ok uzunlugu
-    public int thickness = 1;       // cizgi kalinligi
-    public int gap = 3;             // merkezden bosluk (sadece arti)
+    public int size = 5;
+    public int thickness = 1;
+    public int gap = 3;
     public boolean outline = true;
     public String outlineColor = "FF000000";
     public int outlineThickness = 1;
     public boolean centerDot = false;
     public int dotSize = 1;
-    public boolean tShape = false;  // sadece arti: ustteki kolu kaldirir
-    public boolean hideInThirdPerson = false;
-
-    // Ok (^) stili: kollarin dikeyle yaptigi aci (derece)
+    public boolean tShape = false;
+    public boolean hideInThirdPerson = true;
     public int angle = 45;
-    // Orijinal Minecraft crosshair rengi (arka plani ters ceviren gri/saydam gorunum)
-    public boolean vanillaColor = false;
-
-    // Hedefe bakinca renk degisimi
     public boolean entityColorEnabled = true;
     public String entityColor = "FFFF0000";
-    public boolean targetOnlyLiving = true; // sadece oyuncu/mob/NPC gibi canlilar
+    public boolean targetOnlyLiving = true;
+    // Orijinal (vanilla) renk: arka plani ters cevirir, renk ayari yok sayilir
+    public boolean vanillaColor = false;
 
-    public transient int colorInt = 0xFFFFFFFF;
-    public transient int outlineColorInt = 0xFF000000;
-    public transient int entityColorInt = 0xFFFF0000;
+    // Kendi cizdigin crosshair (customGrid x customGrid, '1' = dolu piksel)
+    public int customGrid = 11;
+    public int customScale = 1;
+    public String customPixels = "";
 
     public static CrosshairConfig get() {
-        if (instance == null) load();
         return instance;
     }
 
     public static void load() {
-        CrosshairConfig cfg = null;
         try {
             if (Files.exists(PATH)) {
-                cfg = GSON.fromJson(Files.readString(PATH), CrosshairConfig.class);
+                CrosshairConfig c = GSON.fromJson(Files.readString(PATH), CrosshairConfig.class);
+                if (c != null) {
+                    instance = c;
+                }
             }
         } catch (Exception e) {
             System.err.println("[CustomCrosshair] Config okunamadi, varsayilan kullaniliyor: " + e);
+            instance = new CrosshairConfig();
         }
-        if (cfg == null) cfg = new CrosshairConfig();
-        cfg.normalize();
-        instance = cfg;
-        save();
+        instance.normalize();
+        instance.save();
     }
 
     public static void reset() {
-        CrosshairConfig cfg = new CrosshairConfig();
-        cfg.normalize();
-        instance = cfg;
-        save();
+        instance = new CrosshairConfig();
+        instance.normalize();
     }
 
-    public void normalize() {
-        if (style == null) style = Style.CROSS;
-        size = Math.max(0, size);
-        thickness = Math.max(1, thickness);
-        gap = Math.max(0, gap);
-        outlineThickness = Math.max(0, outlineThickness);
-        dotSize = Math.max(1, dotSize);
-        angle = Math.min(80, Math.max(10, angle));
-        if (color == null) color = "FFFFFFFF";
-        if (outlineColor == null) outlineColor = "FF000000";
-        if (entityColor == null) entityColor = "FFFF0000";
-        colorInt = parse(color, 0xFFFFFFFF);
-        outlineColorInt = parse(outlineColor, 0xFF000000);
-        entityColorInt = parse(entityColor, 0xFFFF0000);
-    }
-
-    public static void save() {
+    public void save() {
+        normalize();
         try {
-            Files.writeString(PATH, GSON.toJson(instance));
+            Files.writeString(PATH, GSON.toJson(this));
         } catch (IOException e) {
             System.err.println("[CustomCrosshair] Config yazilamadi: " + e);
         }
     }
 
+    public void normalize() {
+        if (style == null) style = Style.CROSS;
+        size = clamp(size, 1, 30);
+        thickness = clamp(thickness, 1, 10);
+        gap = clamp(gap, 0, 20);
+        outlineThickness = clamp(outlineThickness, 0, 4);
+        dotSize = clamp(dotSize, 1, 10);
+        angle = clamp(angle, 10, 80);
+        customScale = clamp(customScale, 1, 4);
+        customGrid = clamp(customGrid, 5, 31);
+        if (customGrid % 2 == 0) customGrid++;
+        if (customGrid > 31) customGrid = 31;
+        if (customPixels == null || customPixels.length() != customGrid * customGrid) {
+            setPixels(plus(customGrid));
+        }
+    }
+
+    // ---- renkler (AARRGGBB veya RRGGBB) ----
+    public int colorInt() { return parse(color, 0xFFFFFFFF); }
+    public int outlineColorInt() { return parse(outlineColor, 0xFF000000); }
+    public int entityColorInt() { return parse(entityColor, 0xFFFF0000); }
+
     public static int parse(String s, int fallback) {
+        if (s == null) return fallback;
+        s = s.trim().replace("#", "");
+        if (s.length() == 6) s = "FF" + s;
+        if (s.length() != 8) return fallback;
         try {
-            String h = s.replace("#", "").trim();
-            if (h.length() == 6) h = "FF" + h;
-            return (int) Long.parseLong(h, 16);
-        } catch (Exception e) {
+            return (int) Long.parseLong(s, 16);
+        } catch (NumberFormatException e) {
             return fallback;
         }
+    }
+
+    // ---- ozel piksel verisi ----
+    public boolean[] pixels() {
+        int len = customGrid * customGrid;
+        if (customPixels == null || customPixels.length() != len) {
+            return plus(customGrid);
+        }
+        boolean[] r = new boolean[len];
+        for (int i = 0; i < len; i++) {
+            r[i] = customPixels.charAt(i) == '1';
+        }
+        return r;
+    }
+
+    public void setPixels(boolean[] p) {
+        StringBuilder sb = new StringBuilder(p.length);
+        for (boolean b : p) sb.append(b ? '1' : '0');
+        customPixels = sb.toString();
+    }
+
+    public static boolean[] plus(int n) {
+        boolean[] r = new boolean[n * n];
+        int c = n / 2;
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                boolean onRow = (y == c && Math.abs(x - c) >= 2);
+                boolean onCol = (x == c && Math.abs(y - c) >= 2);
+                r[y * n + x] = onRow || onCol;
+            }
+        }
+        return r;
+    }
+
+    private static int clamp(int v, int lo, int hi) {
+        return Math.max(lo, Math.min(hi, v));
     }
 }

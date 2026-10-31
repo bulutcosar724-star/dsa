@@ -13,16 +13,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(InGameHud.class)
 public class InGameHudMixin {
-
     @Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
     private void customcrosshair$render(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
         CrosshairConfig cfg = CrosshairConfig.get();
-        if (!cfg.enabled) return; // kapaliysa vanilla crosshair cizilsin
-
-        ci.cancel(); // vanilla crosshair'i iptal et
+        if (!cfg.enabled) {
+            return; // kapaliysa vanilla crosshair cizilir
+        }
+        ci.cancel();
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (cfg.hideInThirdPerson && !mc.options.getPerspective().isFirstPerson()) return;
-
+        if (cfg.hideInThirdPerson && !mc.options.getPerspective().isFirstPerson()) {
+            return;
+        }
         CrosshairRenderer.render(context);
     }
 }

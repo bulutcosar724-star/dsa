@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "customcrosshair",
-  "version": "${version}",
+  "version": "1.1.0",
   "name": "Custom Crosshair",
-  "description": "Hafif, client-side ozel crosshair.",
+  "description": "Hafif, client-side ozel crosshair + piksel editoru.",
   "authors": ["Sen"],
   "license": "MIT",
   "environment": "client",

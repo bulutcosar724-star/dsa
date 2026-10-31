@@ -6,168 +6,181 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
+import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+import org.joml.Matrix4f;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
-import org.joml.Matrix4f;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
-public class CrosshairRenderer {
-    // Dortgen tamponu: her dortgen 8 sayi (x1,y1 ... x4,y4)
-    private static float[] q = new float[512];
-    private static int qn;
+/** Sadece DrawContext.fill ile dikdortgen cizer, FPS'e etkisi yok denecek kadar az. */
+public final class CrosshairRenderer {
+    private CrosshairRenderer() {}
 
-    private static void quad(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4) {
-        if (qn + 8 > q.length) q = Arrays.copyOf(q, q.length * 2);
-        // GUI'nin bekledigi sarma yonu (fill ile ayni): isaretli alan <= 0 olmali
-        float area = (x1 * y2 - x2 * y1) + (x2 * y3 - x3 * y2) + (x3 * y4 - x4 * y3) + (x4 * y1 - x1 * y4);
-        if (area <= 0) {
-            q[qn++] = x1; q[qn++] = y1; q[qn++] = x2; q[qn++] = y2;
-            q[qn++] = x3; q[qn++] = y3; q[qn++] = x4; q[qn++] = y4;
+    public static void render(DrawContext ctx) {
+        CrosshairConfig cfg = CrosshairConfig.get();
+        int cx = (ctx.getScaledWindowWidth() - 1) / 2;
+        int cy = (ctx.getScaledWindowHeight() - 1) / 2;
+        draw(ctx, cfg, cx, cy, isTargetingEntity(cfg), null);
+    }
+
+    /** cx, cy = merkez pikseli. override null degilse o stil cizilir (onizleme icin). */
+    public static void draw(DrawContext ctx, CrosshairConfig cfg, int cx, int cy,
+                            boolean onTarget, CrosshairConfig.Style override) {
+        CrosshairConfig.Style style = override != null ? override : cfg.style;
+        List<int[]> rects = new ArrayList<>();
+        build(cfg, style, cx, cy, rects);
+
+        boolean targetColor = onTarget && cfg.entityColorEnabled;
+        boolean invert = cfg.vanillaColor && !targetColor;
+        int color = targetColor ? cfg.entityColorInt() : cfg.colorInt();
+        int o = cfg.outline ? cfg.outlineThickness : 0;
+        if (o > 0) {
+            int oc = cfg.outlineColorInt();
+            for (int[] r : rects) {
+                ctx.fill(r[0] - o, r[1] - o, r[2] + o, r[3] + o, oc);
+            }
+        }
+        if (invert) {
+            drawInverted(ctx, rects);
         } else {
-            q[qn++] = x4; q[qn++] = y4; q[qn++] = x3; q[qn++] = y3;
-            q[qn++] = x2; q[qn++] = y2; q[qn++] = x1; q[qn++] = y1;
+            for (int[] r : rects) {
+                ctx.fill(r[0], r[1], r[2], r[3], color);
+            }
         }
     }
 
-    private static void rect(float x1, float y1, float x2, float y2) {
-        quad(x1, y1, x1, y2, x2, y2, x2, y1);
+    /** Vanilla crosshair gibi arka plani ters ceviren blend ile cizer. */
+    private static void drawInverted(DrawContext ctx, List<int[]> rects) {
+        if (rects.isEmpty()) return;
+        ctx.draw(); // bekleyen cizimleri (outline) once gonder
+        Matrix4f m = ctx.getMatrices().peek().getPositionMatrix();
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(
+                GlStateManager.SrcFactor.ONE_MINUS_DST_COLOR, GlStateManager.DstFactor.ONE_MINUS_SRC_COLOR,
+                GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ZERO);
+        BufferBuilder buf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+        for (int[] r : rects) {
+            buf.vertex(m, r[0], r[3], 0f).color(0xFFFFFFFF);
+            buf.vertex(m, r[2], r[3], 0f).color(0xFFFFFFFF);
+            buf.vertex(m, r[2], r[1], 0f).color(0xFFFFFFFF);
+            buf.vertex(m, r[0], r[1], 0f).color(0xFFFFFFFF);
+        }
+        BuiltBuffer built = buf.endNullable();
+        if (built != null) {
+            BufferRenderer.drawWithGlobalProgram(built);
+        }
+        RenderSystem.defaultBlendFunc();
     }
 
-    /** Oyun ici HUD: ekran ortasi + hedef kontrolu */
-    public static void render(DrawContext ctx) {
-        render(ctx, ctx.getScaledWindowWidth() / 2f, ctx.getScaledWindowHeight() / 2f, isTargetingEntity());
-    }
-
-    private static boolean isTargetingEntity() {
-        CrosshairConfig c = CrosshairConfig.get();
-        if (!c.entityColorEnabled) return false;
+    private static boolean isTargetingEntity(CrosshairConfig cfg) {
+        if (!cfg.entityColorEnabled) return false;
         HitResult h = MinecraftClient.getInstance().crosshairTarget;
         if (h == null || h.getType() != HitResult.Type.ENTITY) return false;
-        if (!c.targetOnlyLiving) return true;
+        if (!cfg.targetOnlyLiving) return true;
         return ((EntityHitResult) h).getEntity() instanceof LivingEntity;
     }
 
-    public static void render(DrawContext ctx, float cx, float cy, boolean onTarget) {
-        CrosshairConfig c = CrosshairConfig.get();
-        ctx.draw(); // onceki bekleyen cizimleri bosalt, sira bozulmasin
-
-        // Orijinal renk: arka plani ters ceviren beyaz (vanilla gibi). Hedefteyken normal renk (kirmizi).
-        boolean invert = c.vanillaColor && !onTarget;
-
-        if (!invert && c.outline && c.outlineThickness > 0) {
-            build(c, cx, cy, c.outlineThickness);
-            flush(ctx, c.outlineColorInt, false);
-        }
-        build(c, cx, cy, 0);
-        flush(ctx, invert ? 0xFFFFFFFF : (onTarget ? c.entityColorInt : c.colorInt), invert);
-    }
-
-    /** grow: outline icin sekli her yone ne kadar buyuteecegi (0 = normal sekil) */
-    private static void build(CrosshairConfig c, float cx, float cy, float grow) {
-        qn = 0;
-        int icx = (int) Math.floor(cx);
-        int icy = (int) Math.floor(cy);
-        int t = c.thickness;
-        int lo = -(t / 2);
-        int hi = lo + t;
-
-        switch (c.style) {
-            case CROSS -> {
-                int g = c.gap;
-                int s = c.size;
-                if (s > 0) {
-                    rect(icx - g - s - grow, icy + lo - grow, icx - g + grow, icy + hi + grow);     // sol
-                    rect(icx + g - grow, icy + lo - grow, icx + g + s + grow, icy + hi + grow);     // sag
-                    if (!c.tShape) {
-                        rect(icx + lo - grow, icy - g - s - grow, icx + hi + grow, icy - g + grow); // ust
+    // dikdortgenler: {x1, y1, x2, y2}  (x2, y2 dahil degil)
+    private static void build(CrosshairConfig cfg, CrosshairConfig.Style style, int cx, int cy, List<int[]> out) {
+        switch (style) {
+            case CROSS: {
+                int t = cfg.thickness, g = cfg.gap, s = cfg.size;
+                int x0 = cx - (t - 1) / 2, y0 = cy - (t - 1) / 2;
+                int x1 = x0 + t, y1 = y0 + t;
+                out.add(new int[]{x0 - g - s, y0, x0 - g, y1});        // sol
+                out.add(new int[]{x1 + g, y0, x1 + g + s, y1});        // sag
+                if (!cfg.tShape) {
+                    out.add(new int[]{x0, y0 - g - s, x1, y0 - g});    // ust
+                }
+                out.add(new int[]{x0, y1 + g, x1, y1 + g + s});        // alt
+                if (g == 0) {
+                    out.add(new int[]{x0, y0, x1, y1});                // merkez dolgu
+                }
+                if (cfg.centerDot) dot(out, cx, cy, cfg.dotSize);
+                break;
+            }
+            case DOT:
+                dot(out, cx, cy, cfg.dotSize);
+                break;
+            case CIRCLE: {
+                int r = cfg.size;
+                double outer = r + 0.5;
+                double inner = outer - cfg.thickness;
+                for (int dy = -r; dy <= r; dy++) {
+                    int start = Integer.MIN_VALUE;
+                    for (int dx = -r; dx <= r + 1; dx++) {
+                        boolean on = false;
+                        if (dx <= r) {
+                            double d = Math.sqrt(dx * dx + dy * dy);
+                            on = d <= outer && d > inner;
+                        }
+                        if (on && start == Integer.MIN_VALUE) {
+                            start = dx;
+                        } else if (!on && start != Integer.MIN_VALUE) {
+                            out.add(new int[]{cx + start, cy + dy, cx + dx, cy + dy + 1});
+                            start = Integer.MIN_VALUE;
+                        }
                     }
-                    rect(icx + lo - grow, icy + g - grow, icx + hi + grow, icy + g + s + grow);     // alt
                 }
+                if (cfg.centerDot) dot(out, cx, cy, cfg.dotSize);
+                break;
             }
-            case DOT -> {
-                int d = c.dotSize;
-                int dl = -(d / 2);
-                rect(icx + dl - grow, icy + dl - grow, icx + dl + d + grow, icy + dl + d + grow);
-            }
-            case CIRCLE -> {
-                float r = Math.max(c.size, t);
-                float ro = r + grow;
-                float ri = Math.max(0f, r - t - grow);
-                int segs = 48;
-                for (int k = 0; k < segs; k++) {
-                    double a1 = 2 * Math.PI * k / segs;
-                    double a2 = 2 * Math.PI * (k + 1) / segs;
-                    float c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
-                    float c2 = (float) Math.cos(a2), s2 = (float) Math.sin(a2);
-                    quad(cx + ri * c1, cy + ri * s1,
-                         cx + ro * c1, cy + ro * s1,
-                         cx + ro * c2, cy + ro * s2,
-                         cx + ri * c2, cy + ri * s2);
+            case ARROW: {
+                int t = cfg.thickness;
+                double a = Math.toRadians(cfg.angle);
+                Set<Long> seen = new HashSet<>();
+                for (int i = cfg.gap; i <= cfg.gap + cfg.size; i++) {
+                    int dx = (int) Math.round(i * Math.sin(a));
+                    int dy = (int) Math.round(i * Math.cos(a));
+                    addBox(out, seen, cx + dx - (t - 1) / 2, cy + dy - (t - 1) / 2, t);
+                    addBox(out, seen, cx - dx - (t - 1) / 2, cy + dy - (t - 1) / 2, t);
                 }
+                if (cfg.centerDot) dot(out, cx, cy, cfg.dotSize);
+                break;
             }
-            case CHEVRON -> {
-                if (c.size > 0) {
-                    double phi = Math.toRadians(c.angle);
-                    float sn = (float) Math.sin(phi);
-                    float cs = (float) Math.cos(phi);
-                    float w = t + 2 * grow;
-                    float half = w / 2f;
-                    float len = c.size + grow;
-
-                    float ax = cx;
-                    float ay = cy - (c.size * cs) / 2f;     // seklin dikey ortasi crosshair merkezi
-                    float m = half / sn;                    // zirvedeki miter uzunlugu
-
-                    float oax = ax, oay = ay - m;           // dis zirve
-                    float iax = ax, iay = ay + m;           // ic zirve
-
-                    // sol kol ucu
-                    float lx = ax - len * sn, ly = ay + len * cs;
-                    float lox = lx - cs * half, loy = ly - sn * half;
-                    float lix = lx + cs * half, liy = ly + sn * half;
-                    // sag kol ucu
-                    float rx = ax + len * sn, ry = ay + len * cs;
-                    float rox = rx + cs * half, roy = ry - sn * half;
-                    float rix = rx - cs * half, riy = ry + sn * half;
-
-                    quad(oax, oay, iax, iay, lix, liy, lox, loy);
-                    quad(iax, iay, oax, oay, rox, roy, rix, riy);
+            case CUSTOM: {
+                int n = cfg.customGrid, sc = cfg.customScale;
+                boolean[] p = cfg.pixels();
+                int half = n / 2;
+                int left = cx - half * sc;
+                int top = cy - half * sc;
+                for (int row = 0; row < n; row++) {
+                    int start = -1;
+                    for (int col = 0; col <= n; col++) {
+                        boolean on = col < n && p[row * n + col];
+                        if (on && start < 0) {
+                            start = col;
+                        } else if (!on && start >= 0) {
+                            out.add(new int[]{left + start * sc, top + row * sc,
+                                    left + col * sc, top + (row + 1) * sc});
+                            start = -1;
+                        }
+                    }
                 }
+                break;
             }
-        }
-
-        if (c.centerDot && c.style != CrosshairConfig.Style.DOT) {
-            int d = c.dotSize;
-            int dl = -(d / 2);
-            rect(icx + dl - grow, icy + dl - grow, icx + dl + d + grow, icy + dl + d + grow);
         }
     }
 
-    private static void flush(DrawContext ctx, int color, boolean invert) {
-        if (qn == 0) return;
-        Matrix4f m = ctx.getMatrices().peek().getPositionMatrix();
-        BufferBuilder bb = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
-        for (int i = 0; i < qn; i += 8) {
-            for (int k = 0; k < 4; k++) {
-                bb.vertex(m, q[i + 2 * k], q[i + 2 * k + 1], 0f).color(color);
-            }
+    private static void dot(List<int[]> out, int cx, int cy, int d) {
+        int x0 = cx - (d - 1) / 2, y0 = cy - (d - 1) / 2;
+        out.add(new int[]{x0, y0, x0 + d, y0 + d});
+    }
+
+    private static void addBox(List<int[]> out, Set<Long> seen, int x, int y, int t) {
+        long key = ((long) x << 32) ^ (y & 0xffffffffL);
+        if (seen.add(key)) {
+            out.add(new int[]{x, y, x + t, y + t});
         }
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        RenderSystem.enableBlend();
-        if (invert) {
-            RenderSystem.blendFuncSeparate(
-                    GlStateManager.SrcFactor.ONE_MINUS_DST_COLOR, GlStateManager.DstFactor.ONE_MINUS_SRC_COLOR,
-                    GlStateManager.SrcFactor.ONE, GlStateManager.DstFactor.ZERO);
-        } else {
-            RenderSystem.defaultBlendFunc();
-        }
-        BufferRenderer.drawWithGlobalProgram(bb.end());
-        RenderSystem.defaultBlendFunc();
     }
 }
