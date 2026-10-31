@@ -58,6 +58,7 @@ public class CrosshairScreen extends Screen {
         toggle(x2, y + ROW * 4, "3. sahis gizle", () -> cfg.hideInThirdPerson, v -> cfg.hideInThirdPerson = v);
         toggle(x2, y + ROW * 5, "Hedefte renk", () -> cfg.entityColorEnabled, v -> cfg.entityColorEnabled = v);
         toggle(x2, y + ROW * 6, "Sadece canlilar", () -> cfg.targetOnlyLiving, v -> cfg.targetOnlyLiving = v);
+        toggle(x2, y + ROW * 7, "Orijinal renk", () -> cfg.vanillaColor, v -> cfg.vanillaColor = v);
 
         // --- Sutun 3: stil, renkler, butonlar ---
         addDrawableChild(ButtonWidget.builder(Text.literal("Stil: " + cfg.style.name()), b -> {

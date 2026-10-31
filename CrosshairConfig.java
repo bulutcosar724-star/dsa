@@ -32,6 +32,8 @@ public class CrosshairConfig {
     public boolean entityColorEnabled = true;
     public String entityColor = "FFFF0000";
     public boolean targetOnlyLiving = true;
+    // Orijinal (vanilla) renk: arka plani ters cevirir, renk ayari yok sayilir
+    public boolean vanillaColor = false;
 
     // Kendi cizdigin crosshair (customGrid x customGrid, '1' = dolu piksel)
     public int customGrid = 11;
