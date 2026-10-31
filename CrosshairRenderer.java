@@ -143,7 +143,10 @@ public final class CrosshairRenderer {
     // dikdortgenler: {x1, y1, x2, y2}  (x2, y2 dahil degil)
     private static void build(CrosshairConfig cfg, CrosshairConfig.Style style, int cx, int cy,
                               List<int[]> out, Mesh fill, Mesh outl, float f, int o) {
-        float fcx = cx + 0.5f, fcy = cy + 0.5f; // merkez pikselin tam ortasi
+        // Merkezi gercek ekran piksel izgarasina oturt: sol/sag kollar birebir ayna olsun, egri durmasin
+        float sc = 1f / f;
+        float fcx = Math.round((cx + 0.5f) * sc) / sc;
+        float fcy = Math.round((cy + 0.5f) * sc) / sc;
         switch (style) {
             case CROSS: {
                 int t = cfg.thickness, g = cfg.gap, s = cfg.size;
@@ -180,7 +183,7 @@ public final class CrosshairRenderer {
                 float s0 = cfg.gap * u, s1 = (cfg.gap + cfg.size) * u;
                 float w = (0.5f + 0.5f * cfg.thickness) * u;   // kalinlik 1 = 1 gercek piksel
                 float oo = o * u;
-                float ay = fcy - (s0 + s1) / 2f * cs;           // dikeyde ortala
+                float ay = Math.round((fcy - (s0 + s1) / 2f * cs) * sc) / sc; // dikeyde ortala, piksele oturt
                 for (int side = -1; side <= 1; side += 2) {
                     float dx = side * sn, dy = cs;
                     float st = s0 - w / 2f;                      // tepe noktasini doldur

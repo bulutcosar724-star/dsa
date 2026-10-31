@@ -2,6 +2,7 @@ package com.example.customcrosshair;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.annotations.SerializedName;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
@@ -9,7 +10,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class CrosshairConfig {
-    public enum Style { CROSS, DOT, CIRCLE, ARROW, CUSTOM }
+    public enum Style {
+        CROSS, DOT, CIRCLE,
+        @SerializedName(value = "ARROW", alternate = {"CHEVRON"}) ARROW, // eski adi CHEVRON da okunur
+        CUSTOM
+    }
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("customcrosshair.json");
