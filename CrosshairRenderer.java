@@ -173,16 +173,21 @@ public final class CrosshairRenderer {
                 break;
             }
             case ARROW: {
+                // Ince "^" (chevron): olculer GERCEK ekran pikseli cinsinden, GUI olcegine bagli degil
+                float u = f;
                 float a = (float) Math.toRadians(cfg.angle);
                 float sn = (float) Math.sin(a), cs = (float) Math.cos(a);
-                float s0 = cfg.gap, s1 = cfg.gap + cfg.size;
-                float w = cfg.thickness;
+                float s0 = cfg.gap * u, s1 = (cfg.gap + cfg.size) * u;
+                float w = (0.5f + 0.5f * cfg.thickness) * u;   // kalinlik 1 = 1 gercek piksel
+                float oo = o * u;
+                float ay = fcy - (s0 + s1) / 2f * cs;           // dikeyde ortala
                 for (int side = -1; side <= 1; side += 2) {
                     float dx = side * sn, dy = cs;
-                    line(fill, fcx + dx * s0, fcy + dy * s0, fcx + dx * s1, fcy + dy * s1, w, f);
+                    float st = s0 - w / 2f;                      // tepe noktasini doldur
+                    line(fill, fcx + dx * st, ay + dy * st, fcx + dx * s1, ay + dy * s1, w, f);
                     if (o > 0) {
-                        line(outl, fcx + dx * (s0 - o), fcy + dy * (s0 - o),
-                                fcx + dx * (s1 + o), fcy + dy * (s1 + o), w + 2 * o, f);
+                        line(outl, fcx + dx * (st - oo), ay + dy * (st - oo),
+                                fcx + dx * (s1 + oo), ay + dy * (s1 + oo), w + 2 * oo, f);
                     }
                 }
                 if (cfg.centerDot) dot(out, cx, cy, cfg.dotSize);
